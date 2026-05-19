@@ -1,0 +1,49 @@
+# Personal Memory Engine — .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.eggs/
+
+# Virtual Environment
+.venv/
+venv/
+env/
+virtualenv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.pem
+
+# Data (user-specific, not committed)
+data/memories.db
+data/memories.db-journal
+data/vault/
+data/*.db
+
+# Logs
+*.log
+logs/
+
+# Server PID
+*.pid
+*.lock
+
+# OS
+Thumbs.db
+.DS_Store

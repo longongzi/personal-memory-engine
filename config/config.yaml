@@ -1,0 +1,38 @@
+encryption:
+  enabled: true
+  key_file: config/.encryption_key
+engine:
+  chunk_max_chars: 3000
+  poll_interval: 20
+  scoring:
+    frequency_weight: 0.3
+    quality_weight: 0.3
+    recency_weight: 0.4
+  summary_levels: 3
+scrapers:
+  enabled: []
+server:
+  cors_origins:
+  - '*'
+  host: 127.0.0.1
+  port: 8210
+  web_ui: true
+storage:
+  database: data/memories.db
+  vault_dir: data/vault
+tokenjuice:
+  enabled: true
+  rules:
+  - name: html_to_markdown
+    order: 1
+    strategy: convert
+  - name: dedup_lines
+    order: 2
+    strategy: dedup
+  - name: fold_whitespace
+    order: 3
+    strategy: fold
+  - max_chars: 50000
+    name: truncate_oversized
+    order: 4
+    strategy: truncate

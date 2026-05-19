@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Memory Engine</title>
+<style>
+  :root { --bg: #0f0f1a; --surface: #1a1a2e; --accent: #7c3aed; --accent2: #3b82f6; --text: #e2e8f0; --muted: #94a3b8; --border: #2d2d4a; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .app { display: flex; height: 100vh; }
+  .sidebar { width: 320px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: white; }
+  .stats { display: flex; gap: 8px; padding: 12px 16px; flex-wrap: wrap; }
+  .stat-card { flex: 1; min-width: 80px; padding: 12px; background: rgba(124,58,237,0.08); border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+  .stat-card .num { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat-card .label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .controls { display: flex; gap: 8px; padding: 12px 16px; flex-wrap: wrap; }
+  .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #6d28d9; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #3d3d5a; }
+  .btn-danger { background: #ef4444; color: white; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .search-box { padding: 12px 16px; }
+  .search-box input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; outline: none; }
+  .search-box input:focus { border-color: var(--accent); }
+  .tree-container { flex: 1; overflow-y: auto; padding: 8px 16px; }
+  .tree-node { padding: 8px 12px; margin: 2px 0; border-radius: 6px; cursor: pointer; transition: all .15s; border-left: 2px solid transparent; }
+  .tree-node:hover { background: rgba(124,58,237,0.1); border-left-color: var(--accent); }
+  .tree-node.level-1 { margin-left: 0; border-left-color: #3b82f6; }
+  .tree-node.level-2 { margin-left: 20px; border-left-color: #10b981; }
+  .tree-node.level-3 { margin-left: 40px; border-left-color: var(--accent); }
+  .tree-node .title { font-size: 13px; font-weight: 500; }
+  .tree-node .meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; }
+  .tree-node .score { color: #f59e0b; }
+  .detail { flex: 1; padding: 24px; overflow-y: auto; }
+  .detail h2 { font-size: 20px; margin-bottom: 16px; }
+  .detail .content { background: var(--surface); padding: 16px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+  .detail .meta-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .detail .meta-row .item { font-size: 12px; color: var(--muted); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: rgba(124,58,237,0.2); color: var(--accent); font-size: 11px; margin-right: 4px; }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; opacity: 0; transition: opacity .3s; z-index: 100; }
+  .toast.show { opacity: 1; }
+  .toast.success { background: #10b981; }
+  .toast.error { background: #ef4444; }
+  .toast.info { background: var(--accent); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .polling { animation: pulse 1.5s infinite; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="header">
+      <h1>🧠 Memoir</h1>
+      <span class="badge">v0.1</span>
+      <span id="connStatus" style="font-size:10px;color:var(--muted)">● offline</span>
+    </div>
+    <div class="stats" id="statsBar"></div>
+    <div class="controls">
+      <button class="btn btn-primary btn-sm" onclick="addMemory()">➕ 添加记忆</button>
+      <button class="btn btn-secondary btn-sm" onclick="distill()">🌀 蒸馏</button>
+      <button class="btn btn-secondary btn-sm" onclick="refreshTree()">🔄 刷新</button>
+    </div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索记忆..." oninput="searchMemories(this.value)">
+    </div>
+    <div class="tree-container" id="treeContainer">
+      <div style="text-align:center;color:var(--muted);padding:40px 20px;">
+        <div style="font-size:40px;margin-bottom:12px;">🧠</div>
+        <div>正在加载记忆树...</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Main -->
+  <div class="main">
+    <div class="detail" id="detailPanel">
+      <div style="text-align:center;color:var(--muted);margin-top:80px;">
+        <div style="font-size:64px;margin-bottom:16px;">👋</div>
+        <h2 style="margin-bottom:8px;">Personal Memory Engine</h2>
+        <p>你的个人AI记忆引擎</p>
+        <p style="margin-top:12px;font-size:13px;">点击左侧记忆节点查看详情</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+let ws = null;
+let memories = [];
+
+// WebSocket
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.onopen = () => document.getElementById('connStatus').textContent = '● online';
+  ws.onclose = () => {
+    document.getElementById('connStatus').textContent = '● offline';
+    setTimeout(connectWS, 3000);
+  };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'poll_result') showToast(`📥 ${msg.source}: ${msg.count} 条新数据`, 'info');
+    if (msg.type === 'distill_result') { showToast(`🌀 蒸馏完成`, 'success'); refreshTree(); }
+    if (msg.type === 'memory_created') showToast(`📝 新记忆: ${msg.summary}`, 'info');
+  };
+}
+
+// API 调用
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const r = await fetch(`${API}${path}`, opts);
+  if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+// Toast
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// 加载统计
+async function loadStats() {
+  try {
+    const s = await api('GET', '/api/statistics');
+    document.getElementById('statsBar').innerHTML = `
+      <div class="stat-card"><div class="num">${s.total_memories || 0}</div><div class="label">总记忆</div></div>
+      ${Object.entries(s.by_level || {}).map(([k,v]) => 
+        `<div class="stat-card"><div class="num">${v.count}</div><div class="label">${k}</div></div>`
+      ).join('')}
+      <div class="stat-card"><div class="num">${s.total_tags || 0}</div><div class="label">标签</div></div>
+    `;
+  } catch(e) { /* ignore */ }
+}
+
+// 加载记忆树
+async function loadTree() {
+  try {
+    const data = await api('GET', '/api/memories/tree?level=3');
+    memories = data.tree || [];
+    renderTree(memories);
+  } catch(e) { showToast(`加载失败: ${e.message}`, 'error'); }
+}
+
+function renderTree(nodes, level = 1) {
+  const c = document.getElementById('treeContainer');
+  if (level === 1) c.innerHTML = '';
+  for (const n of nodes) {
+    const div = document.createElement('div');
+    div.className = `tree-node level-${Math.min(n.level, 3)}`;
+    const dt = new Date(n.created_at * 1000).toLocaleDateString('zh-CN');
+    div.innerHTML = `
+      <div class="title">${n.summary || '(无摘要)'}</div>
+      <div class="meta">
+        <span>${n.source_type || '?'}</span>
+        <span>${dt}</span>
+        <span class="score">★ ${n.score?.toFixed(2) || '0'}</span>
+        <span>👁 ${n.access_count || 0}</span>
+      </div>
+    `;
+    div.onclick = () => showDetail(n.id);
+    c.appendChild(div);
+    if (n.children && n.children.length) renderTree(n.children, level + 1);
+  }
+}
+
+// 显示详情
+async function showDetail(id) {
+  try {
+    const m = await api('GET', `/api/memories/${id}`);
+    const dt = new Date(m.created_at * 1000).toLocaleString('zh-CN');
+    const p = document.getElementById('detailPanel');
+    p.innerHTML = `
+      <div class="meta-row">
+        <span class="item">📁 ${m.source_type}</span>
+        <span class="item">🆔 ${m.id}</span>
+        <span class="item">📅 ${dt}</span>
+        <span class="item">★ ${m.score.toFixed(3)}</span>
+        <span class="item">👁 ${m.access_count}</span>
+      </div>
+      <h2>${m.summary || '(无摘要)'}</h2>
+      <div class="meta-row">
+        ${(m.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
+        ${m.parent_id ? `<span class="tag" style="background:rgba(16,185,129,0.2);color:#10b981;">父节点: ${m.parent_id.slice(0,12)}...</span>` : ''}
+      </div>
+      <div class="content">${m.content}</div>
+      <div style="margin-top:16px;">
+        <button class="btn btn-danger btn-sm" onclick="deleteMemory('${m.id}')">🗑 删除</button>
+      </div>
+    `;
+  } catch(e) { showToast(`加载失败: ${e.message}`, 'error'); }
+}
+
+// 搜索
+async function searchMemories(keyword) {
+  if (!keyword.trim()) { loadTree(); return; }
+  try {
+    const data = await api('POST', '/api/memories/query', { keyword, limit: 50 });
+    const c = document.getElementById('treeContainer');
+    c.innerHTML = data.results.length ? '' : '<div style="text-align:center;color:var(--muted);padding:40px;">无结果</div>';
+    for (const m of data.results) {
+      const div = document.createElement('div');
+      div.className = `tree-node level-${m.level}`;
+      div.innerHTML = `
+        <div class="title">${m.summary || m.content.slice(0,60)}</div>
+        <div class="meta"><span>★ ${m.score.toFixed(2)}</span><span>${m.source_type}</span></div>
+      `;
+      div.onclick = () => showDetail(m.id);
+      c.appendChild(div);
+    }
+  } catch(e) { /* ignore */ }
+}
+
+// 操作
+function addMemory() {
+  const content = prompt('输入记忆内容:');
+  if (!content) return;
+  api('POST', '/api/memories', { content, source_type: 'manual', source_id: 'web_ui' })
+    .then(() => { showToast('✅ 记忆已添加', 'success'); refreshTree(); })
+    .catch(e => showToast(`❌ ${e.message}`, 'error'));
+}
+
+function deleteMemory(id) {
+  if (!confirm('确定删除此记忆?')) return;
+  api('DELETE', `/api/memories/${id}`)
+    .then(() => { showToast('🗑 已删除', 'success'); refreshTree(); })
+    .catch(e => showToast(`❌ ${e.message}`, 'error'));
+}
+
+function distill() {
+  showToast('🌀 开始蒸馏...', 'info');
+  api('POST', '/api/distill')
+    .then(s => showToast(`✅ 蒸馏完成: L1→L2: ${s.l1_to_l2}, L2→L3: ${s.l2_to_l3}`, 'success'))
+    .catch(e => showToast(`❌ ${e.message}`, 'error'));
+}
+
+function refreshTree() { loadStats(); loadTree(); }
+
+// 启动
+connectWS();
+loadStats();
+loadTree();
+</script>
+</body>
+</html>
