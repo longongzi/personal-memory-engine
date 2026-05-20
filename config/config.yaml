@@ -10,7 +10,22 @@ engine:
     recency_weight: 0.4
   summary_levels: 3
 scrapers:
-  enabled: []
+  enabled:
+    - name: B站热门
+      type: web
+      url: "https://api.bilibili.com/x/web-interface/popular"
+      poll_interval: 1800
+      extra:
+        urls:
+          - "https://api.bilibili.com/x/web-interface/popular"
+    - name: 知乎热榜
+      type: rss
+      url: "https://www.zhihu.com/api/v3/feed/topstory/hot-lists/total"
+      poll_interval: 3600
+    - name: GitHub Trending
+      type: rss
+      url: "https://github.com/trending"
+      poll_interval: 7200
 server:
   cors_origins:
   - '*'
@@ -32,7 +47,7 @@ tokenjuice:
   - name: fold_whitespace
     order: 3
     strategy: fold
-  - max_chars: 50000
-    name: truncate_oversized
+  - name: truncate_oversized
     order: 4
     strategy: truncate
+    max_chars: 50000

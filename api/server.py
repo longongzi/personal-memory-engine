@@ -99,6 +99,36 @@ async def lifespan(app: FastAPI):
     state.tokenjuice = TokenJuice()
     state.registry = ConnectorRegistry()
     
+    # 自动注册配置中启用的连接器
+    scrapers_cfg = cfg.get("scrapers", {})
+    enabled = scrapers_cfg.get("enabled", [])
+    logger.info(f"Auto-registering {len(enabled)} connectors from config")
+    for conn_cfg in enabled:
+        try:
+            c_type = conn_cfg.get("type", "rss")
+            # 构建ConnectorConfig
+            cc = ConnectorConfig(
+                name=conn_cfg.get("name", c_type),
+                type=c_type,
+                base_url=conn_cfg.get("url", ""),
+                access_token=conn_cfg.get("token", ""),
+                poll_interval=conn_cfg.get("poll_interval", 1200),
+                extra=conn_cfg.get("extra", {}),
+            )
+            # 动态选择connector类
+            from scrapers.connectors import RSSConnector, GitHubConnector, WebScraperConnector
+            _cmap = {
+                "rss": RSSConnector, "github": GitHubConnector,
+                "web": lambda c: WebScraperConnector(c, c.extra.get("urls", [])),
+            }
+            cls = _cmap.get(c_type)
+            if cls:
+                connector = cls(cc) if not callable(cls) else cls(cc)
+                state.registry.register(connector)
+                logger.info(f"  Registered connector: {cc.name} ({c_type})")
+        except Exception as e:
+            logger.warning(f"  Failed to register connector {conn_cfg.get('name')}: {e}")
+    
     # 启动自动轮询任务
     poll_interval = engine_cfg.get("poll_interval", 20) * 60
     state.poll_task = asyncio.create_task(_poll_loop(poll_interval))
@@ -163,8 +193,8 @@ async def _poll_loop(interval_seconds: int):
                         level=MemoryLevel.ATOMIC,
                         source_type=MemoryType(data.source_type),
                         source_id=data.source_id,
-                        content=compressed.output[:2000],
-                        summary=compressed.summary,
+                        content=compressed.output[:3000],
+                        summary=compressed.summary or str(item.get("title", ""))[:200],
                         score=0.5,
                         metadata={"original_size": compressed.original_chars},
                     )
@@ -309,31 +339,37 @@ async def compress_text(req: CompressTextRequest):
 @app.post("/api/connectors/register")
 async def register_connector(req: ConnectorRegisterRequest):
     """注册数据源连接器"""
-    from scrapers.connectors import RSSConnector, GitHubConnector, WebScraperConnector
-    
+    from scrapers.connectors import (
+        RSSConnector, GitHubConnector, WebScraperConnector,
+        ImapEmailConnector, WebhookReceiver
+    )
+
     config = ConnectorConfig(
         name=req.name,
         type=req.type_,
         base_url=req.base_url,
         access_token=req.access_token,
         poll_interval=req.poll_interval,
-        extra=req.extra,
+        extra=req.extra or {},
     )
-    
+
     connector_map = {
         "rss": RSSConnector,
         "github": GitHubConnector,
         "web": lambda c: WebScraperConnector(c, c.extra.get("urls", [])),
+        "imap_email": ImapEmailConnector,
+        "webhook": WebhookReceiver,
     }
-    
+
     connector_cls = connector_map.get(req.type_)
     if not connector_cls:
-        raise HTTPException(400, f"Unknown connector type: {req.type_}")
-    
-    connector = (lambda c: connector_cls(c) if callable(connector_cls) else connector_cls(config))(
-        config
-    ) if not callable(connector_cls) else connector_cls(config)
-    
+        raise HTTPException(400, f"Unknown connector type: {req.type_}. Supported: {list(connector_map.keys())}")
+
+    if callable(connector_cls):
+        connector = connector_cls(config)
+    else:
+        connector = connector_cls(config)
+
     state.registry.register(connector)
     return {"name": req.name, "type": req.type_, "status": "registered"}
 

@@ -5,118 +5,256 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Personal Memory Engine</title>
 <style>
-  :root { --bg: #0f0f1a; --surface: #1a1a2e; --accent: #7c3aed; --accent2: #3b82f6; --text: #e2e8f0; --muted: #94a3b8; --border: #2d2d4a; }
+  :root { --bg: #0f0f1a; --surface: #1a1a2e; --surface2: #22223a; --accent: #7c3aed; --accent2: #3b82f6; --text: #e2e8f0; --muted: #94a3b8; --border: #2d2d4a; --green: #10b981; --yellow: #f59e0b; --red: #ef4444; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
   .app { display: flex; height: 100vh; }
-  .sidebar { width: 320px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-  .main { flex: 1; display: flex; flex-direction: column; }
-  .header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
-  .header h1 { font-size: 18px; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--accent); color: white; }
-  .stats { display: flex; gap: 8px; padding: 12px 16px; flex-wrap: wrap; }
-  .stat-card { flex: 1; min-width: 80px; padding: 12px; background: rgba(124,58,237,0.08); border-radius: 8px; border: 1px solid var(--border); text-align: center; }
-  .stat-card .num { font-size: 24px; font-weight: 700; color: var(--accent); }
-  .stat-card .label { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .controls { display: flex; gap: 8px; padding: 12px 16px; flex-wrap: wrap; }
-  .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .2s; }
+
+  /* ── 状态栏 ── */
+  .status-bar { position: fixed; top: 0; left: 0; right: 0; height: 4px; z-index: 999; transition: background .3s; }
+  .status-bar.idle { background: var(--green); }
+  .status-bar.processing { background: var(--yellow); animation: pulse 1.5s infinite; }
+  .status-bar.offline { background: var(--red); }
+  .status-bar.error { background: var(--red); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+  /* ── 三栏布局 ── */
+  .left-panel { width: 300px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .center-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .right-panel { width: 340px; min-width: 240px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+
+  .panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .panel-header h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .panel-header .hint { font-size: 11px; color: var(--muted); }
+  .panel-body { flex: 1; overflow-y: auto; }
+
+  /* ── 左侧: 连接器管理 ── */
+  .connector-item { padding: 10px 14px; margin: 4px 8px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+  .connector-item:hover { border-color: var(--accent); }
+  .connector-item .name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .connector-item .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .connector-item .status-dot.enabled { background: var(--green); }
+  .connector-item .status-dot.disabled { background: var(--muted); }
+  .connector-item .meta { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .add-connector-btn { margin: 8px; padding: 8px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 12px; color: var(--muted); background: transparent; transition: all .2s; }
+  .add-connector-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── 中栏: 记忆时间线 ── */
+  .center-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .center-header h1 { font-size: 16px; font-weight: 600; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .search-bar { flex: 1; max-width: 400px; position: relative; }
+  .search-bar input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; outline: none; }
+  .search-bar input:focus { border-color: var(--accent); }
+  .timeline { padding: 12px 16px; }
+  .timeline-item { padding: 10px 14px; margin: 4px 0; border-radius: 6px; cursor: pointer; transition: all .15s; border-left: 3px solid transparent; }
+  .timeline-item:hover { background: rgba(124,58,237,0.08); border-left-color: var(--accent); }
+  .timeline-item .source-badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; background: rgba(59,130,246,0.15); color: var(--accent2); margin-right: 6px; }
+  .timeline-item .time { font-size: 11px; color: var(--muted); }
+  .timeline-item .content { font-size: 13px; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .timeline-item .score { font-size: 11px; color: #f59e0b; }
+  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* ── 右侧: 详情/工具面板 ── */
+  .detail-panel { flex: 1; padding: 20px; overflow-y: auto; }
+  .detail-panel h2 { font-size: 18px; margin-bottom: 12px; }
+  .detail-panel .content { background: var(--surface2); padding: 14px; border-radius: 6px; white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+  .detail-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: rgba(124,58,237,0.15); color: var(--accent); font-size: 11px; margin: 2px; }
+  .tag.green { background: rgba(16,185,129,0.15); color: var(--green); }
+
+  /* ── 按钮 ── */
+  .btn { padding: 7px 14px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all .15s; }
   .btn-primary { background: var(--accent); color: white; }
   .btn-primary:hover { background: #6d28d9; }
   .btn-secondary { background: var(--border); color: var(--text); }
   .btn-secondary:hover { background: #3d3d5a; }
-  .btn-danger { background: #ef4444; color: white; }
-  .btn-sm { padding: 4px 10px; font-size: 12px; }
-  .search-box { padding: 12px 16px; }
-  .search-box input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; outline: none; }
-  .search-box input:focus { border-color: var(--accent); }
-  .tree-container { flex: 1; overflow-y: auto; padding: 8px 16px; }
-  .tree-node { padding: 8px 12px; margin: 2px 0; border-radius: 6px; cursor: pointer; transition: all .15s; border-left: 2px solid transparent; }
-  .tree-node:hover { background: rgba(124,58,237,0.1); border-left-color: var(--accent); }
-  .tree-node.level-1 { margin-left: 0; border-left-color: #3b82f6; }
-  .tree-node.level-2 { margin-left: 20px; border-left-color: #10b981; }
-  .tree-node.level-3 { margin-left: 40px; border-left-color: var(--accent); }
-  .tree-node .title { font-size: 13px; font-weight: 500; }
-  .tree-node .meta { font-size: 11px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; }
-  .tree-node .score { color: #f59e0b; }
-  .detail { flex: 1; padding: 24px; overflow-y: auto; }
-  .detail h2 { font-size: 20px; margin-bottom: 16px; }
-  .detail .content { background: var(--surface); padding: 16px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
-  .detail .meta-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-  .detail .meta-row .item { font-size: 12px; color: var(--muted); }
-  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: rgba(124,58,237,0.2); color: var(--accent); font-size: 11px; margin-right: 4px; }
-  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; opacity: 0; transition: opacity .3s; z-index: 100; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .header-actions { display: flex; gap: 6px; }
+
+  /* ── 模态框 ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; min-width: 380px; max-width: 500px; }
+  .modal h3 { margin-bottom: 16px; font-size: 16px; }
+  .modal label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
+  .modal input, .modal select, .modal textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--text); font-size: 13px; outline: none; }
+  .modal input:focus, .modal select:focus { border-color: var(--accent); }
+  .modal .actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 18px; border-radius: 6px; color: white; font-size: 13px; opacity: 0; transition: opacity .3s; z-index: 100; max-width: 400px; }
   .toast.show { opacity: 1; }
-  .toast.success { background: #10b981; }
-  .toast.error { background: #ef4444; }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
   .toast.info { background: var(--accent); }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-  .polling { animation: pulse 1.5s infinite; }
+
+  /* ── 响应式 ── */
+  @media (max-width: 900px) {
+    .right-panel { display: none; }
+    .left-panel { width: 240px; }
+  }
+  @media (max-width: 600px) {
+    .left-panel { display: none; }
+    .right-panel { display: none; }
+  }
 </style>
 </head>
 <body>
+
+<!-- 顶部状态栏 -->
+<div class="status-bar idle" id="statusBar"></div>
+
 <div class="app">
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="header">
-      <h1>🧠 Memoir</h1>
-      <span class="badge">v0.1</span>
-      <span id="connStatus" style="font-size:10px;color:var(--muted)">● offline</span>
+  <!-- 左侧：连接器管理 -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <h2>🔌 数据源</h2>
+      <span class="hint" id="connectorCount">0</span>
     </div>
-    <div class="stats" id="statsBar"></div>
-    <div class="controls">
-      <button class="btn btn-primary btn-sm" onclick="addMemory()">➕ 添加记忆</button>
-      <button class="btn btn-secondary btn-sm" onclick="distill()">🌀 蒸馏</button>
-      <button class="btn btn-secondary btn-sm" onclick="refreshTree()">🔄 刷新</button>
+    <div class="panel-body" id="connectorList">
+      <div class="empty-state" style="padding:40px 16px;">
+        <div style="font-size:32px;margin-bottom:8px;">🔌</div>
+        <div style="font-size:12px;">暂无连接器</div>
+      </div>
     </div>
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="搜索记忆..." oninput="searchMemories(this.value)">
+    <button class="add-connector-btn" onclick="showAddConnector()">＋ 添加数据源</button>
+  </div>
+
+  <!-- 中间：记忆时间线 -->
+  <div class="center-panel">
+    <div class="center-header">
+      <h1>🧠 Personal Memory Engine</h1>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索记忆..." oninput="searchMemories(this.value)">
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-sm btn-secondary" onclick="addMemory()">➕ 新建</button>
+        <button class="btn btn-sm btn-secondary" onclick="distill()">🌀 蒸馏</button>
+        <button class="btn btn-sm btn-ghost" onclick="loadTimeline()">🔄</button>
+      </div>
     </div>
-    <div class="tree-container" id="treeContainer">
-      <div style="text-align:center;color:var(--muted);padding:40px 20px;">
-        <div style="font-size:40px;margin-bottom:12px;">🧠</div>
-        <div>正在加载记忆树...</div>
+    <div class="panel-body" id="timelineContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">🧠</div>
+        <div>正在加载记忆...</div>
       </div>
     </div>
   </div>
-  
-  <!-- Main -->
-  <div class="main">
-    <div class="detail" id="detailPanel">
-      <div style="text-align:center;color:var(--muted);margin-top:80px;">
-        <div style="font-size:64px;margin-bottom:16px;">👋</div>
-        <h2 style="margin-bottom:8px;">Personal Memory Engine</h2>
-        <p>你的个人AI记忆引擎</p>
-        <p style="margin-top:12px;font-size:13px;">点击左侧记忆节点查看详情</p>
+
+  <!-- 右侧：详情面板 -->
+  <div class="right-panel">
+    <div class="panel-header">
+      <h2>📋 详情</h2>
+      <span class="hint" id="statsHint">—</span>
+    </div>
+    <div class="detail-panel" id="detailPanel">
+      <div class="empty-state">
+        <div class="icon">👋</div>
+        <h2 style="font-size:16px;margin-bottom:8px;">Personal Memory Engine</h2>
+        <p style="font-size:12px;">点击记忆查看详情</p>
       </div>
+    </div>
+    <div class="panel-header" style="border-top:1px solid var(--border);border-bottom:none;">
+      <h2>🔧 快速操作</h2>
+    </div>
+    <div style="padding:10px 14px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);">
+      <button class="btn btn-sm btn-primary" onclick="triggerFetch()">📡 采集一次</button>
+      <button class="btn btn-sm btn-secondary" onclick="loadTimeline()">🔄 刷新</button>
+      <button class="btn btn-sm btn-ghost" onclick="showAbout()">ℹ️ 关于</button>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- 添加连接器模态框 -->
+<div class="modal-overlay" id="connectorModal">
+  <div class="modal">
+    <h3>🔌 添加数据源</h3>
+    <label>名称</label>
+    <input type="text" id="connName" placeholder="如: 我的QQ邮箱">
+    
+    <label>类型</label>
+    <select id="connType">
+      <option value="rss">RSS/Atom 订阅</option>
+      <option value="imap_email">📧 QQ邮箱/163邮箱</option>
+      <option value="github">GitHub</option>
+      <option value="webhook">Webhook 接收器</option>
+      <option value="web">网页抓取</option>
+      <option value="bilibili">📺 B站热门</option>
+    </select>
+
+    <div id="connExtraFields">
+      <label>URL / 主机</label>
+      <input type="text" id="connUrl" placeholder="如: https://example.com/rss">
+      <label>Token / 密码授权码</label>
+      <input type="password" id="connToken" placeholder="可选">
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="addConnector()">确认添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新建记忆模态框 -->
+<div class="modal-overlay" id="memoryModal">
+  <div class="modal">
+    <h3>📝 新建记忆</h3>
+    <label>内容</label>
+    <textarea id="memContent" rows="4" placeholder="输入你想记住的内容..."></textarea>
+    <label>标签（逗号分隔）</label>
+    <input type="text" id="memTags" placeholder="如: work, idea, todo">
+    <label>来源</label>
+    <select id="memSource">
+      <option value="manual">手动输入</option>
+      <option value="chat">聊天</option>
+      <option value="web">网页</option>
+      <option value="email">邮件</option>
+    </select>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeModal('memoryModal')">取消</button>
+      <button class="btn btn-primary" onclick="createMemory()">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '';
 let ws = null;
-let memories = [];
+let allMemories = [];
 
-// WebSocket
+// ── WebSocket ──
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${proto}//${location.host}/ws`);
-  ws.onopen = () => document.getElementById('connStatus').textContent = '● online';
-  ws.onclose = () => {
-    document.getElementById('connStatus').textContent = '● offline';
-    setTimeout(connectWS, 3000);
-  };
+  ws.onopen = () => setStatus('idle', '●');
+  ws.onclose = () => { setStatus('offline', '○ 离线'); setTimeout(connectWS, 3000); };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     if (msg.type === 'poll_result') showToast(`📥 ${msg.source}: ${msg.count} 条新数据`, 'info');
-    if (msg.type === 'distill_result') { showToast(`🌀 蒸馏完成`, 'success'); refreshTree(); }
-    if (msg.type === 'memory_created') showToast(`📝 新记忆: ${msg.summary}`, 'info');
+    if (msg.type === 'distill_result') { showToast('🌀 蒸馏完成', 'success'); loadTimeline(); }
+    if (msg.type === 'memory_created') { showToast('📝 新记忆已保存', 'success'); loadTimeline(); }
+    if (msg.type === 'poll_start') setStatus('processing', '◌ 采集中');
+    if (msg.type === 'poll_error') showToast(`⚠️ 采集错误: ${msg.error}`, 'error');
   };
 }
 
-// API 调用
+function setStatus(state, label) {
+  const bar = document.getElementById('statusBar');
+  bar.className = `status-bar ${state}`;
+  document.querySelector('.center-header h1').textContent =
+    state === 'idle' ? '🧠 Personal Memory Engine' :
+    state === 'processing' ? '◌ 采集中...' :
+    state === 'offline' ? '🧠 离线模式' : '🧠 Personal Memory Engine';
+}
+
+// ── API ──
 async function api(method, path, body) {
   const opts = { method, headers: {} };
   if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
@@ -125,134 +263,235 @@ async function api(method, path, body) {
   return r.json();
 }
 
-// Toast
 function showToast(msg, type = 'info') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// 加载统计
+// ── 状态栏 ──
+function showAbout() {
+  const p = document.getElementById('detailPanel');
+  p.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🧠</div>
+      <h2 style="font-size:16px;margin-bottom:4px;">Personal Memory Engine</h2>
+      <p style="font-size:12px;color:var(--muted);">v0.2.0 · MIT License</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px;">本地优先 · 微信推送 · QQ邮箱 · B站 · RSS</p>
+    </div>
+  `;
+  document.getElementById('statsHint').textContent = 'v0.2';
+}
+
+// ── 连接器管理 ──
+async function loadConnectors() {
+  try {
+    const data = await api('GET', '/api/connectors');
+    const list = document.getElementById('connectorList');
+    const conns = data.connectors || [];
+    document.getElementById('connectorCount').textContent = conns.length;
+    if (!conns.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:40px 16px;"><div style="font-size:32px;margin-bottom:8px;">🔌</div><div style="font-size:12px;">暂无连接器</div></div>';
+      return;
+    }
+    list.innerHTML = conns.map(c => `
+      <div class="connector-item" onclick="showToast('${c.name}: ${c.source_type}', 'info')">
+        <div class="name">
+          <span class="status-dot enabled"></span>
+          ${c.name}
+          <span style="font-size:10px;color:var(--muted);margin-left:auto;">${c.type}</span>
+        </div>
+        <div class="meta">
+          <span>📁 ${c.source_type}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { /* ignore */ }
+}
+
+function showAddConnector() {
+  document.getElementById('connectorModal').classList.add('show');
+  document.getElementById('connName').value = '';
+  document.getElementById('connUrl').value = '';
+  document.getElementById('connToken').value = '';
+  document.getElementById('connType').value = 'rss';
+}
+
+function closeModal(id) {
+  document.getElementById(id || 'connectorModal').classList.remove('show');
+}
+
+async function addConnector() {
+  const name = document.getElementById('connName').value.trim();
+  const type = document.getElementById('connType').value;
+  const url = document.getElementById('connUrl').value.trim();
+  const token = document.getElementById('connToken').value.trim();
+  if (!name) { showToast('请输入名称', 'error'); return; }
+
+  try {
+    if (type === 'rss' || type === 'webhook') {
+      await api('POST', '/api/connectors/register', {
+        name, type: type, base_url: url, access_token: token || undefined, poll_interval: 1200
+      });
+    } else if (type === 'imap_email') {
+      await api('POST', '/api/connectors/register', {
+        name, type: 'rss', base_url: url, access_token: token || undefined,
+        extra: { connector_type: 'imap_email' }
+      });
+    } else if (type === 'bilibili') {
+      await api('POST', '/api/connectors/register', {
+        name, type: 'web', base_url: 'https://api.bilibili.com/x/web-interface/popular',
+        extra: { urls: ['https://api.bilibili.com/x/web-interface/popular'] }
+      });
+    } else {
+      await api('POST', '/api/connectors/register', {
+        name, type, base_url: url || undefined, access_token: token || undefined
+      });
+    }
+    closeModal();
+    showToast(`✅ 已添加: ${name}`, 'success');
+    loadConnectors();
+  } catch(e) { showToast(`❌ ${e.message}`, 'error'); }
+}
+
+// ── 时间线 ──
+async function loadTimeline() {
+  try {
+    const data = await api('POST', '/api/memories/query', { limit: 50, sort_by: 'created_at', sort_desc: true });
+    allMemories = data.results || [];
+    renderTimeline(allMemories);
+    loadConnectors();
+    loadStats();
+  } catch(e) { showToast(`加载失败: ${e.message}`, 'error'); }
+}
+
 async function loadStats() {
   try {
     const s = await api('GET', '/api/statistics');
-    document.getElementById('statsBar').innerHTML = `
-      <div class="stat-card"><div class="num">${s.total_memories || 0}</div><div class="label">总记忆</div></div>
-      ${Object.entries(s.by_level || {}).map(([k,v]) => 
-        `<div class="stat-card"><div class="num">${v.count}</div><div class="label">${k}</div></div>`
-      ).join('')}
-      <div class="stat-card"><div class="num">${s.total_tags || 0}</div><div class="label">标签</div></div>
-    `;
+    const total = s.total_memories || 0;
+    const levels = s.by_level || {};
+    const l1 = (levels['L1-ATOMIC'] || {}).count || 0;
+    const l2 = (levels['L2-SCENE'] || {}).count || 0;
+    const l3 = (levels['L3-PERSONA'] || {}).count || 0;
+    document.getElementById('statsHint').textContent = `📝${total}  L1:${l1} L2:${l2} L3:${l3}`;
   } catch(e) { /* ignore */ }
 }
 
-// 加载记忆树
-async function loadTree() {
-  try {
-    const data = await api('GET', '/api/memories/tree?level=3');
-    memories = data.tree || [];
-    renderTree(memories);
-  } catch(e) { showToast(`加载失败: ${e.message}`, 'error'); }
-}
-
-function renderTree(nodes, level = 1) {
-  const c = document.getElementById('treeContainer');
-  if (level === 1) c.innerHTML = '';
-  for (const n of nodes) {
+function renderTimeline(mems) {
+  const c = document.getElementById('timelineContainer');
+  if (!mems.length) {
+    c.innerHTML = '<div class="empty-state"><div class="icon">🌱</div><div>还没有记忆</div><p style="font-size:12px;margin-top:8px;">添加数据源或手动创建</p></div>';
+    return;
+  }
+  c.innerHTML = '<div class="timeline"></div>';
+  const tl = c.querySelector('.timeline');
+  for (const m of mems) {
+    const dt = m.created_at ? new Date(m.created_at * 1000).toLocaleString('zh-CN') : '';
+    const badge = m.source_type || '?';
+    const summary = m.summary || m.content?.slice(0, 80) || '(空)';
     const div = document.createElement('div');
-    div.className = `tree-node level-${Math.min(n.level, 3)}`;
-    const dt = new Date(n.created_at * 1000).toLocaleDateString('zh-CN');
+    div.className = 'timeline-item';
     div.innerHTML = `
-      <div class="title">${n.summary || '(无摘要)'}</div>
-      <div class="meta">
-        <span>${n.source_type || '?'}</span>
-        <span>${dt}</span>
-        <span class="score">★ ${n.score?.toFixed(2) || '0'}</span>
-        <span>👁 ${n.access_count || 0}</span>
+      <div>
+        <span class="source-badge">${badge}</span>
+        <span class="time">${dt}</span>
+        <span class="score" style="float:right;">★ ${(m.score || 0).toFixed(2)}</span>
       </div>
+      <div class="content">${summary}</div>
     `;
-    div.onclick = () => showDetail(n.id);
-    c.appendChild(div);
-    if (n.children && n.children.length) renderTree(n.children, level + 1);
+    div.onclick = () => showDetail(m.id);
+    tl.appendChild(div);
   }
 }
 
-// 显示详情
+// ── 搜索 ──
+async function searchMemories(keyword) {
+  if (!keyword.trim()) { renderTimeline(allMemories); return; }
+  try {
+    const data = await api('POST', '/api/memories/query', { keyword, limit: 50 });
+    renderTimeline(data.results || []);
+  } catch(e) { /* ignore */ }
+}
+
+// ── 详情 ──
 async function showDetail(id) {
   try {
     const m = await api('GET', `/api/memories/${id}`);
-    const dt = new Date(m.created_at * 1000).toLocaleString('zh-CN');
+    const dt = m.created_at ? new Date(m.created_at * 1000).toLocaleString('zh-CN') : '';
     const p = document.getElementById('detailPanel');
+    document.getElementById('statsHint').textContent = `ID: ${m.id?.slice(0,12)}...`;
     p.innerHTML = `
-      <div class="meta-row">
-        <span class="item">📁 ${m.source_type}</span>
-        <span class="item">🆔 ${m.id}</span>
-        <span class="item">📅 ${dt}</span>
-        <span class="item">★ ${m.score.toFixed(3)}</span>
-        <span class="item">👁 ${m.access_count}</span>
+      <div class="detail-meta">
+        <span>📁 ${m.source_type || '?'}</span>
+        <span>📅 ${dt}</span>
+        <span>★ ${(m.score || 0).toFixed(3)}</span>
+        <span>👁 ${m.access_count || 0}</span>
       </div>
       <h2>${m.summary || '(无摘要)'}</h2>
-      <div class="meta-row">
+      <div style="margin-bottom:12px;">
         ${(m.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}
-        ${m.parent_id ? `<span class="tag" style="background:rgba(16,185,129,0.2);color:#10b981;">父节点: ${m.parent_id.slice(0,12)}...</span>` : ''}
+        ${m.level ? `<span class="tag green">L${m.level}</span>` : ''}
       </div>
-      <div class="content">${m.content}</div>
-      <div style="margin-top:16px;">
-        <button class="btn btn-danger btn-sm" onclick="deleteMemory('${m.id}')">🗑 删除</button>
+      <div class="content">${m.content || '(无内容)'}</div>
+      <div style="margin-top:12px;display:flex;gap:6px;">
+        <button class="btn btn-sm btn-danger" onclick="deleteMemory('${m.id}')">🗑 删除</button>
       </div>
     `;
   } catch(e) { showToast(`加载失败: ${e.message}`, 'error'); }
 }
 
-// 搜索
-async function searchMemories(keyword) {
-  if (!keyword.trim()) { loadTree(); return; }
-  try {
-    const data = await api('POST', '/api/memories/query', { keyword, limit: 50 });
-    const c = document.getElementById('treeContainer');
-    c.innerHTML = data.results.length ? '' : '<div style="text-align:center;color:var(--muted);padding:40px;">无结果</div>';
-    for (const m of data.results) {
-      const div = document.createElement('div');
-      div.className = `tree-node level-${m.level}`;
-      div.innerHTML = `
-        <div class="title">${m.summary || m.content.slice(0,60)}</div>
-        <div class="meta"><span>★ ${m.score.toFixed(2)}</span><span>${m.source_type}</span></div>
-      `;
-      div.onclick = () => showDetail(m.id);
-      c.appendChild(div);
-    }
-  } catch(e) { /* ignore */ }
+// ── 操作 ──
+function addMemory() {
+  document.getElementById('memoryModal').classList.add('show');
+  document.getElementById('memContent').value = '';
+  document.getElementById('memTags').value = '';
+  document.getElementById('memSource').value = 'manual';
 }
 
-// 操作
-function addMemory() {
-  const content = prompt('输入记忆内容:');
-  if (!content) return;
-  api('POST', '/api/memories', { content, source_type: 'manual', source_id: 'web_ui' })
-    .then(() => { showToast('✅ 记忆已添加', 'success'); refreshTree(); })
-    .catch(e => showToast(`❌ ${e.message}`, 'error'));
+async function createMemory() {
+  const content = document.getElementById('memContent').value.trim();
+  const tags = document.getElementById('memTags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const source = document.getElementById('memSource').value;
+  if (!content) { showToast('请输入内容', 'error'); return; }
+  try {
+    await api('POST', '/api/memories', { content, source_type: source, source_id: 'web_ui', tags });
+    closeModal('memoryModal');
+    showToast('✅ 记忆已保存', 'success');
+    loadTimeline();
+  } catch(e) { showToast(`❌ ${e.message}`, 'error'); }
 }
 
 function deleteMemory(id) {
-  if (!confirm('确定删除此记忆?')) return;
+  if (!confirm('确定删除?')) return;
   api('DELETE', `/api/memories/${id}`)
-    .then(() => { showToast('🗑 已删除', 'success'); refreshTree(); })
+    .then(() => { showToast('🗑 已删除', 'success'); loadTimeline(); })
     .catch(e => showToast(`❌ ${e.message}`, 'error'));
 }
 
 function distill() {
-  showToast('🌀 开始蒸馏...', 'info');
+  setStatus('processing', '◌ 蒸馏中');
   api('POST', '/api/distill')
-    .then(s => showToast(`✅ 蒸馏完成: L1→L2: ${s.l1_to_l2}, L2→L3: ${s.l2_to_l3}`, 'success'))
-    .catch(e => showToast(`❌ ${e.message}`, 'error'));
+    .then(s => {
+      showToast(`✅ 蒸馏完成`, 'success');
+      setStatus('idle', '●');
+      loadTimeline();
+    })
+    .catch(e => { showToast(`❌ ${e.message}`, 'error'); setStatus('idle', '●'); });
 }
 
-function refreshTree() { loadStats(); loadTree(); }
+async function triggerFetch() {
+  setStatus('processing', '◌ 采集中');
+  try {
+    const r = await api('POST', '/api/connectors/fetch');
+    showToast(`📡 采集完成: ${r.total_items} 条`, 'success');
+    setStatus('idle', '●');
+    loadTimeline();
+  } catch(e) { showToast(`❌ ${e.message}`, 'error'); setStatus('idle', '●'); }
+}
 
-// 启动
+// ── 启动 ──
 connectWS();
-loadStats();
-loadTree();
+loadTimeline();
 </script>
 </body>
 </html>
