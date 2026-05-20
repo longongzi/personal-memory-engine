@@ -6,8 +6,9 @@
 ### *Your Personal AI Memory Engine — Learn About You, Remember Everything*
 
 [![GitHub Stars](https://img.shields.io/github/stars/longongzi/personal-memory-engine?style=for-the-badge&logo=github&color=7c3aed)](https://github.com/longongzi/personal-memory-engine/stargazers)
-[![MIT License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&color=10b981)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&color=3b82f6)](https://www.python.org/)
+|[![MIT License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&color=10b981)](LICENSE)
+|[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&color=3b82f6)](https://www.python.org/)
+|[![Sponsor](https://img.shields.io/badge/💖_Sponsor-ff69b4?style=for-the-badge&logo=githubsponsors&color=db2777)](https://github.com/sponsors/longongzi)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge&color=f59e0b)](CONTRIBUTING.md)
 
 **🇨🇳 中文 | [🇺🇸 English](#english)** 
@@ -223,6 +224,20 @@ tokenjuice:
 ## 📜 许可
 
 MIT License — 你可以自由使用、修改、商用。
+
+---
+
+## 💖 赞助
+
+| 金额 | 权益 |
+|------|------|
+| ☕ **一杯咖啡** ($5) | 名字出现在README感谢列表 |
+| 🧠 **记忆赞助人** ($20) | 徽章 + 路线图优先投票权 |
+| 🏢 **企业赞助** ($100+) | LOGO展示 + 功能需求优先开发 |
+
+[![Sponsor](https://img.shields.io/badge/💖_通过GitHub_Sponsors赞助-db2777?style=for-the-badge&logo=githubsponsors)](https://github.com/sponsors/longongzi)
+
+> 所有赞助将用于服务器维护、API使用费及开源社区活动。
 
 ---
 
