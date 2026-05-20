@@ -60,6 +60,11 @@ class ConnectorRegisterRequest(BaseModel):
     extra: dict = {}
 
 
+class CompressTextRequest(BaseModel):
+    text: str
+    is_html: bool = False
+
+
 # ─── App State ──────────────────────────────
 
 class AppState:
@@ -238,9 +243,17 @@ async def get_memory(memory_id: str):
 @app.post("/api/memories/query")
 async def query_memories(req: QueryRequest):
     """查询记忆"""
-    level = MemoryLevel[req.level] if req.level else None
-    source_type = MemoryType[req.source_type] if req.source_type else None
-    
+    level = MemoryLevel[req.level.upper()] if req.level else None
+    source_type = None
+    if req.source_type:
+        try:
+            source_type = MemoryType[req.source_type.upper()]
+        except KeyError:
+            for mt in MemoryType:
+                if mt.value == req.source_type.lower():
+                    source_type = mt
+                    break
+                
     results = await state.engine.query(
         level=level,
         source_type=source_type,
@@ -279,9 +292,9 @@ async def trigger_distill():
 
 
 @app.post("/api/compress")
-async def compress_text(text: str, is_html: bool = False):
+async def compress_text(req: CompressTextRequest):
     """测试TokenJuice压缩效果"""
-    result = state.tokenjuice.compress(text, is_html=is_html)
+    result = state.tokenjuice.compress(req.text, is_html=req.is_html)
     return {
         "original_chars": result.original_chars,
         "compressed_chars": result.compressed_chars,
