@@ -27,20 +27,24 @@
 
 ## 项目简介
 
-**Personal Memory Engine** 是一个轻量级、本地优先的**个人AI记忆引擎**。受 OpenHuman 的启发，它提供核心的记忆自动采集、组织、压缩能力——**让你的AI真正懂你**。但：
+**Personal Memory Engine** 是一个轻量级、本地优先的**个人AI记忆引擎**。把你的微信聊天、邮件、代码提交、文档笔记自动整理成可搜索的记忆树——**让你的AI真正记住你**。
 
-| 对比 | OpenHuman | **Personal Memory Engine** |
-|------|-----------|---------------------------|
-| 🏗 架构 | Rust + Tauri（重度，门槛高） | **纯 Python**（人人可改） |
-| 📜 许可 | GPL-3.0（强制开源） | **MIT**（企业放心用） |
-| 🚀 部署 | 桌面端下载安装 | **一键 pip install** |
-| 🀄 国内生态 | ❌ 不支持微信/钉钉 | **✅ 原生支持** |
-| 📦 代码量 | 10万+ 行Rust | **~3000 行 Python** |
-| 🎯 核心定位 | 全场景桌面AI | **轻量记忆引擎** |
+❓ **你是不是也有这些问题？**
 
-> **为什么需要它？**
-> 
-> 每次和AI聊天都要重新介绍自己？Personal Memory Engine 是你和AI之间的"记忆层"——自动采集你的邮件、代码、聊天、文档，整理成可搜索的记忆树。让你的AI真正**认识你**。
+- 在微信聊过的重要信息，想找的时候翻半天
+- 每次跟AI聊天都要重新介绍自己的背景
+- 收藏了一堆资料，没有一篇真正消化了
+- 邮箱里的重要邮件，读完就再也找不到了
+
+**PME 帮你自动整理这一切。**
+
+| 特性 | PME |
+|------|-----|
+| 🏗 技术栈 | **纯 Python**，3000行代码，人人可改 |
+| 📜 许可 | **MIT**，商用无限制 |
+| 🀄 国内生态 | **微信/钉钉/飞书原生支持** |
+| 📦 部署 | 一键 `python run.py` 启动 |
+| 🔒 隐私 | 本地SQLite，数据不离开设备 |
 
 ---
 
@@ -73,7 +77,7 @@ L1 (原子记忆) ──蒸馏──→ L2 (场景摘要) ──蒸馏──→ 
 
 ### 📦 TokenJuice 智能压缩
 
-参考 OpenHuman 的 TokenJuice 设计，自动压缩原始数据：
+参考 TokenJuice 设计，自动压缩原始数据：
 
 - HTML → Markdown 转换
 - 连续重复行去重
@@ -254,7 +258,6 @@ MIT License — 你可以自由使用、修改、商用。
 
 ## 🙏 致谢
 
-- [OpenHuman](https://github.com/tinyhumansai/openhuman) — 项目灵感来源，20K⭐ 的AI超级智能体
 - [TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) — 三层渐进式记忆架构参考
 - 所有贡献者和用户
 
@@ -268,17 +271,15 @@ MIT License — 你可以自由使用、修改、商用。
 
 **🇺🇸 English**
 
-Personal Memory Engine is a pure-Python, local-first memory system inspired by OpenHuman. It automatically collects, organizes, and compresses your digital life — emails, chats, code, documents — into a searchable memory tree that your AI can understand.
+Personal Memory Engine is a pure-Python, local-first memory layer for your AI. It automatically collects data from WeChat, email, code commits, social media and documents — organizing everything into a searchable memory tree.
 
-### Key Differences from OpenHuman
+### Why PME?
 
-| Aspect | OpenHuman | **Personal Memory Engine** |
-|--------|-----------|---------------------------|
-| Architecture | Rust + Tauri (heavy) | **Pure Python** (hackable) |
-| License | GPL-3.0 (copyleft) | **MIT** (permissive) |
-| Deploy | Desktop installer | **1-command pip install** |
-| China ecosystem | ❌ No WeChat/DingTalk | **✅ Native support** |
-| Codebase | 100K+ lines Rust | **~3K lines Python** |
+- WeChat & DingTalk & Feishu native support — designed for the China ecosystem
+- Pure Python (~3K lines) — anyone can hack and customize
+- MIT license — free for commercial use
+- Zero config SQLite — data never leaves your machine
+- One command to start — `python run.py`
 
 ### Features
 
